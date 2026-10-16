@@ -14,6 +14,10 @@ Esta entrega implementa únicamente la prueba de conexión. El MVP de reservas y
 
 Si aparece QR pese a tener una sesión vinculada, detené el proceso y verificá que estás usando la carpeta original con `.wwebjs_auth/session-eventos-prueba`. No revincules ni borres la sesión automáticamente. El QR se muestra solo en terminal: no redirijas la salida a archivos ni compartas capturas del QR.
 
+## Si la ventana queda vacía
+
+El iniciador actualizado imprime un aviso y la versión de Node inmediatamente. El programa imprime `Iniciando bot de prueba...`, luego `iniciando_navegador_y_whatsapp`, y los eventos `cargando_whatsapp` cuando la librería los emite. Si no llega a ready en 60 segundos, aparece `inicio_demorado`; es un aviso, no prueba que el proceso falló. No abras otra instancia ni borres la sesión. Compartí la última línea visible sin QR.
+
 ## Cómo interpretar el diagnóstico
 
 - `autenticado`: la librería informó autenticación.
