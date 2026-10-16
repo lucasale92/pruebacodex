@@ -57,7 +57,7 @@ node --check src/probe.js
 node --test test/probe.test.js
 ```
 
-Se verificaron 16 pruebas sin conexión a WhatsApp: permisos, alias de la cuenta, alias ajenos, grupos, identidad ausente, resolución fallida, desconexión, duplicados concurrentes y errores de envío sin filtración. `npm test` sigue siendo el marcador original del proyecto; usá el comando anterior. No hay todavía pruebas de persistencia, fechas o cancelaciones porque las reservas no están implementadas.
+Se verificaron 23 pruebas sin conexión a WhatsApp: permisos, alias de la cuenta, alias ajenos, grupos, identidad ausente, resolución fallida, desconexión, duplicados concurrentes y errores de envío sin filtración. `npm test` sigue siendo el marcador original del proyecto; usá el comando anterior. No hay todavía pruebas de persistencia, fechas o cancelaciones porque las reservas no están implementadas.
 
 En la nube se ejecutó `npm ci --ignore-scripts` con caché local escribible; no se descargó ni arrancó Chromium, ni se vinculó una cuenta. No se validó aquí el arranque de WhatsApp. package.json y package-lock.json se conservaron exactamente como fueron recibidos.
 
@@ -82,3 +82,7 @@ El .gitignore excluye sesiones, cachés, node_modules, bases de datos, respaldos
 ### Ajuste del diagnóstico de permisos
 
 La presencia de `author` ya no causa por sí sola un rechazo: si existe, debe coincidir con un alias verificado de la cuenta. Se sigue exigiendo origen y destino propios y `fromMe`. Los grupos y los chats de otros contactos siguen rechazados. La captura inicial de rechazo no permite determinar cuál condición falló; los nuevos campos booleanos permiten comprobarlo sin revelar identidades.
+
+### Identificador del comando
+
+Se acepta el token `message.id.id` cuando existe, y `_serialized` como alternativa. La estructura Message conserva `data.id` recibido de WhatsApp, por lo que no se supone que siempre venga serializado. La validación de identidad se ejecuta antes de leer esta clave. Los identificadores no se registran. La deduplicación sigue limitada a la memoria del proceso; si falta un token válido, el comando se rechaza y solo se informa la presencia o ausencia de los campos.

@@ -66,3 +66,23 @@ test('rejection logs only permission booleans', async () => {
   assert.deepEqual(rejection[1], { origenPropio: true, destinoPropio: false, autorPresente: false, autorValido: true });
   assert.ok(!JSON.stringify(entries).includes('333'));
 });
+
+test('raw WhatsApp message token works without _serialized and deduplicates', async () => {
+  const f = fixture(); await f.probe.ready();
+  await f.probe.handle(message({ id: { id: 'raw-token', fromMe: true } }));
+  await f.probe.handle(message({ id: { id: 'raw-token', _serialized: 'full-token', fromMe: true } }));
+  assert.equal(f.calls.length, 1);
+  await f.probe.handle(message({ id: { id: 'another-token' } }));
+  assert.equal(f.calls.length, 2);
+});
+for (const id of [{}, { id: '' }, { id: 123 }, { _serialized: {} }, { id: ' ', _serialized: '' }]) {
+  test(`invalid token fails closed ${JSON.stringify(id)}`, async () => {
+    const f = fixture(); await f.probe.ready();
+    await f.probe.handle(message({ id })); assert.equal(f.calls.length, 0);
+  });
+}
+test('raw token does not bypass chat permissions', async () => {
+  const f = fixture(); await f.probe.ready();
+  await f.probe.handle(message({ id: { id: 'raw-token' }, to: '333@c.us' }));
+  assert.equal(f.calls.length, 0);
+});

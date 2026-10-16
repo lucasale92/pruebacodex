@@ -49,8 +49,22 @@ function createProbe(client, log = console.log) {
         log('rechazo_permisos', permisos);
         return;
       }
-      const key = message.id?._serialized;
-      if (!key) { log('rechazo_sin_id'); return; }
+      // Message._patch retains data.id as provided by WhatsApp. The raw
+      // message token may exist even when _serialized is absent. This
+      // handler is already restricted to one authenticated self-chat.
+      const id = message.id;
+      const validToken = value => typeof value === 'string' && value.trim().length > 0;
+      const key = validToken(id?.id) ? `token:${id.id}`
+        : validToken(id?._serialized) ? `serialized:${id._serialized}`
+        : null;
+      if (!key) {
+        log('rechazo_sin_id', {
+          objetoId: Boolean(id && typeof id === 'object'),
+          tokenDisponible: validToken(id?.id),
+          serializadoDisponible: validToken(id?._serialized),
+        });
+        return;
+      }
       if (seen.has(key)) { log('comando_duplicado'); return; }
       seen.add(key); // Reserve before await so concurrent deliveries cannot double-send.
       if (seen.size > 1000) seen.delete(seen.values().next().value);
