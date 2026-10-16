@@ -18,7 +18,7 @@ async function ownIds(client) {
   return ids;
 }
 
-function createProbe(client, log = console.log) {
+function createProbe(client, log = console.log, send = (...args) => client.sendMessage(...args)) {
   let ids = new Set();
   const seen = new Set();
   return {
@@ -70,7 +70,7 @@ function createProbe(client, log = console.log) {
       if (seen.size > 1000) seen.delete(seen.values().next().value);
       log('intento_respuesta');
       try {
-        await client.sendMessage(message.to, 'Bot de eventos conectado. Prueba correcta.', { sendSeen: false });
+        await send(message.to, 'Bot de eventos conectado. Prueba correcta.', { sendSeen: false });
         log('respuesta_enviada');
       } catch {
         // Do not print library errors that may contain message data or identifiers.

@@ -1,88 +1,91 @@
-# Bot de eventos: diagnóstico de conexión
+# Bot local de reservas por WhatsApp
 
-Esta entrega implementa únicamente la prueba de conexión. El MVP de reservas y los audios quedan pendientes hasta verificar `!prueba` en WhatsApp real, según el orden solicitado. No contiene sesiones ni datos personales.
+MVP de texto para Windows 11 y Node.js 24. Usa SQLite incorporado en Node, sin añadir dependencias de pago. La prueba real `!prueba` fue confirmada por el usuario en WhatsApp; los comandos nuevos de reservas se validaron localmente y necesitan la prueba de aceptación en el celular que figura abajo.
 
-## Instalar la corrección en Windows 11
+## Actualizar el proyecto existente
 
-1. Detené el bot anterior con Ctrl+C. Si PowerShell muestra «Seleccionar», presioná Esc primero: ese modo puede pausar el proceso. No ejecutes dos instancias.
-2. Extraé este paquete en `C:\Users\PC Juegitos\bot-eventos`, conservando sus subcarpetas. El paquete incluye `index.original.js`, copia exacta del archivo recibido. Si modificaste tu index desde entonces, hacé otra copia antes de reemplazarlo.
-3. Conservá `.wwebjs_auth` y `.wwebjs_cache` existentes: no borres ni reemplaces esas carpetas. Se mantiene `clientId: eventos-prueba` y la autenticación se busca junto al index.
-4. Si seguís teniendo las dependencias instaladas, no necesitás reinstalar. Si faltan, abrí una terminal en esa carpeta y ejecutá `npm ci`. La instalación de Puppeteer puede descargar un navegador. No uses `npm audit fix --force`.
-5. Hacé doble clic en `iniciar.bat`, o ejecutá `node index.js` desde esa carpeta. No se necesitan permisos de administrador.
-6. Esperá `identidad_lista` y `conexion_lista`. Desde el celular, en «Mensaje a ti mismo», enviá un nuevo `!prueba`.
-7. La respuesta esperada es «Bot de eventos conectado. Prueba correcta.». Confirmá tanto la respuesta en el celular como `respuesta_enviada` en terminal; una prueba simulada no demuestra que WhatsApp funciona.
+1. Detené el bot con Ctrl+C. En modo «Seleccionar», presioná Esc primero.
+2. Descargá el repositorio en GitHub con Code → Download ZIP y descomprimilo.
+3. Copiá a `C:\Users\PC Juegitos\bot-eventos` los archivos `index.js`, `iniciar.bat`, `package.json`, `README.md`, `config.example.json` y las carpetas `src`, `scripts` y `test`. El lockfile conserva las dependencias anteriores; también puede copiarse sin cambiar sus versiones.
+4. **Conservá `.wwebjs_auth`, `.wwebjs_cache`, `node_modules`, `data`, `backups` y `config.local.json` si existen.** No reemplaces la carpeta entera borrando esos datos. `index.original.js` conserva la prueba original recibida; no lo ejecutes como bot.
+5. Con las dependencias ya instaladas, no hace falta reinstalar. Para instalación desde cero: `npm ci` en esa carpeta; Puppeteer puede descargar un navegador. Requiere Node 24. No requiere administrador de Windows.
+6. Abrí `iniciar.bat`. Esperá `conexion_lista`. Si aparece un QR inesperado, detené y verificá que estés en la carpeta original con `.wwebjs_auth/session-eventos-prueba`; no borres la sesión ni vuelvas a vincular sin diagnosticar.
+7. En tu chat propio enviá `!ayuda`.
 
-Si aparece QR pese a tener una sesión vinculada, detené el proceso y verificá que estás usando la carpeta original con `.wwebjs_auth/session-eventos-prueba`. No revincules ni borres la sesión automáticamente. El QR se muestra solo en terminal: no redirijas la salida a archivos ni compartas capturas del QR.
+La app crea `data/eventos.sqlite` al iniciar. Un lock evita dos instancias y operaciones de respaldo mientras el bot está abierto. Al cerrar abruptamente puede quedar un lock: se retira automáticamente solo si su proceso ya no existe. Si no puede comprobarse, detené las instancias y revisá `data/bot.lock`; nunca lo retires con un bot funcionando.
 
-## Si la ventana queda vacía
+## Prueba de aceptación en tu celular
 
-El iniciador actualizado imprime un aviso y la versión de Node inmediatamente. El programa imprime `Iniciando bot de prueba...`, luego `iniciando_navegador_y_whatsapp`, y los eventos `cargando_whatsapp` cuando la librería los emite. Si no llega a ready en 60 segundos, aparece `inicio_demorado`; es un aviso, no prueba que el proceso falló. No abras otra instancia ni borres la sesión. Compartí la última línea visible sin QR.
+Primero trabajá solo en tu chat propio; no configures al equipo todavía.
 
-## Cómo interpretar el diagnóstico
+1. Enviá `!prueba`: debe responder una vez.
+2. Enviá `!nuevo`. Contestá cada pregunta, por ejemplo: `25/12/2026`, `18:00`, `20:00`, `no`, `Cliente de prueba`, `-`, `Salón de prueba`, `Calle de prueba 123`, `castillo#1`, `-`, `10000`, `2000`, `tentativo`, `Prueba para cancelar`.
+3. El resumen debe indicar total $10.000, pagado $2.000 y saldo $8.000. **No guarda la reserva hasta que envíes `confirmar`.** `descartar` la elimina solo del borrador. Para salir de cualquier paso: `!descartar`.
+4. Guardá y copiá el ID `EV-...` completo de la respuesta. Consultá `!fecha 25/12/2026` y `!ver ID` (reemplazá ID por ese código). `!agenda` muestra solo los próximos 7 días, por lo que un evento más lejano se busca por fecha.
+5. Cerrá con Ctrl+C y volvé a abrir `iniciar.bat`. `!ver ID` debe conservar el evento y su pago sin pedir QR.
+6. Probá `!pago ID 1000 prueba`, revisá el resumen y enviá `confirmar`. El saldo debe ser $7.000.
+7. Probá `!editar ID`, elegí `observaciones`, enviá la nota nueva, revisá y confirmá.
+8. Probá `!cancelar ID`: antes de confirmar debe seguir activo. Confirmá y consultá `!ver ID`: debe decir cancelado. `!historial ID` debe conservar creación, pago, edición y cancelación. La agenda omite cancelados.
+9. Probá otro `!nuevo`, descartalo y verificá que no se agregó un evento.
 
-- `autenticado`: la librería informó autenticación.
-- `identidad_lista`: se obtuvo el ID de la cuenta conectada; `aliasDisponible` indica si también se resolvió su alias.
-- `conexion_lista`: podés enviar el comando nuevo desde el celular.
-- `comando_prueba_recibido`: se recibió `message_create` para un comando propio. Solo registra el tipo de identificador, nunca el número ni el mensaje.
-- `rechazo_permisos`: origen o destino no coincide con la identidad conectada, o un autor presente no pertenece a la cuenta. El registro muestra únicamente `origenPropio`, `destinoPropio`, `autorPresente` y `autorValido` para identificar la condición fallida. No se amplía el acceso para resolverlo.
-- `intento_respuesta`, seguido por `respuesta_enviada` o `error_envio`: distingue el envío del filtro de permisos.
-- `comando_duplicado`: el mismo ID ya se procesó en este proceso. La memoria es limitada a 1000 comandos y no persiste al reiniciar; esto todavía no es la deduplicación durable del futuro MVP.
-- `error_identidad_no_disponible`: no se habilitan respuestas sin una identidad validada.
-- `error_inicio`, `fallo_autenticacion`, `desconectado`: son fallos de arranque/sesión, no del filtro.
+El bot no envía mensajes por iniciativa propia ni contacta al equipo durante estas pruebas. Las respuestas aparecen en el mismo chat validado que envió el comando.
 
-Si después de `conexion_lista` no aparece `comando_prueba_recibido` al enviar un comando nuevo propio, el filtro no llegó a ejecutarse para ese comando: revisar proceso pausado, instancia correcta y entrega de eventos. No se leen mensajes históricos ni se registran conversaciones de terceros. Los comandos entrantes de otros contactos se ignoran.
+## Comandos y carga guiada
 
-Si sigue fallando, compartí solamente los nombres de los eventos de diagnóstico y los campos `origen`, `destino`, `aliasDisponible`; no compartas números, QR o carpetas de sesión. `error_envio` deliberadamente no imprime el error crudo de la librería, que podría contener identificadores.
+- `!ayuda`: comandos.
+- `!nuevo`: pregunta fecha con año, inicio, fin, si termina al día siguiente, cliente, teléfono opcional, lugar, dirección, recursos, responsable opcional, precio, seña, estado y observaciones.
+- `!agenda`: próximos 7 días, contando hoy como día 1. `!hoy`, `!semana`, `!fecha DD/MM/AAAA` y `!agenda DD/MM/AAAA` consultan períodos concretos. Incluye eventos iniciados el día anterior que siguen en curso.
+- `!agenda 7 2` o `!agenda DD/MM/AAAA 2`: segunda página. Cada página contiene hasta 10 eventos, ordenados por inicio; las respuestas extensas se separan en varios mensajes.
+- `!ver ID`: detalle privado del administrador, pagos, saldo y fechas de creación/modificación.
+- `!editar ID`: elegí `fecha`, `inicio`, `fin`, `dia_siguiente`, `cliente`, `telefono`, `lugar`, `direccion`, `recursos`, `responsable`, `precio`, `estado` u `observaciones`. Se cambia un campo por operación y se confirma. Los cambios deben dejar horarios y pagos válidos.
+- `!pago ID MONTO [nota]`: agrega un pago, con resumen y confirmación. Los pagos no se borran ni reemplazan. La seña inicial se distingue de los pagos posteriores. No se admite pagar más que el precio total; para aumentar el precio, editá primero.
+- `!cancelar ID`: conserva la reserva, sus pagos y su historial. Exige confirmación.
+- `!historial ID`: lista las acciones y sus fechas. SQLite también conserva la instantánea completa de cada versión; no se borra al cancelar.
+- `!pendiente`: retoma la pregunta o el resumen de un borrador, incluso después de reiniciar.
+- `!descartar`: abandona el borrador. Las consultas no lo eliminan. Solo puede haber un borrador administrativo a la vez.
 
-## Qué se corrigió y qué no está demostrado
+Fechas visibles DD/MM/AAAA y horas HH:mm en `America/Argentina/Ushuaia`. Se usa UTC−03:00 y se verifica la correspondencia con la zona IANA. No se aceptan “mañana”, años abreviados, fechas imposibles ni horas ambiguas. Importes en pesos argentinos, sin separadores de miles (`15000,50` o `15000.50`). Se guardan centavos enteros. Las fechas de auditoría y pagos también se muestran en la zona de Ushuaia; internamente se conservan timestamps ISO UTC.
 
-El filtro original exige `from === to`. Eso puede fallar cuando WhatsApp representa la misma cuenta mediante `@c.us` y `@lid`. La versión fijada, whatsapp-web.js 1.34.7, expone `client.info.wid` y `getContactLidAndPhone()`.
+No interpreta instrucciones como código: texto y futuros audios son datos. Los audios todavía no se descargan ni transcriben. La segunda etapa requiere evaluar hardware Windows y herramientas antes de proponer modelos o descargas grandes.
 
-La corrección parte exclusivamente de la identidad autenticada, resuelve sus alias y exige que tanto el origen como el destino pertenezcan a esa identidad y que `fromMe` sea verdadero. No elimina sufijos para comparar números ni confía en alias tomados del mensaje. Si la resolución falla, solo acepta el ID exacto autenticado. Los grupos se rechazan. No se habilitó acceso al equipo ni envío proactivo.
+## Recursos, responsables y márgenes
 
-Este es un diagnóstico y una corrección del posible filtro; no hay evidencia todavía de que esa sea la causa en tu computadora. El modo Seleccionar de PowerShell y errores de envío siguen siendo posibilidades que los registros permiten distinguir.
+Cada recurso representa una unidad concreta: `castillo#1`, `castillo#2`, `mickey#1`, etc. Usá siempre los mismos nombres, con el mismo formato; se normalizan espacios exteriores y mayúsculas. No hay un catálogo automático que detecte que dos nombres diferentes son el mismo recurso. Para responsables, usá también un nombre único consistente.
 
-Fuentes de la versión utilizada:
-- https://github.com/pedroslopez/whatsapp-web.js/blob/v1.34.7/src/Client.js (identidad, message_create, getContactLidAndPhone)
-- https://github.com/pedroslopez/whatsapp-web.js/blob/v1.34.7/src/structures/Message.js (from, to, fromMe)
-- https://github.com/pedroslopez/whatsapp-web.js/blob/v1.34.7/src/authStrategies/LocalAuth.js (ruta y conservación de sesión)
+Para establecer márgenes, copiá `config.example.json` como `config.local.json` y editá `trasladoMin`, `armadoMin` y `desarmeMin`. Inicialmente son 0 porque no conocemos tus tiempos reales; poné los valores de tu operación antes de confiar en la disponibilidad. El margen anterior al evento suma traslado y armado; el posterior es desarme. Se aplica a todos los recursos y responsables. No calcula distancias ni rutas. Cada valor admite enteros entre 0 y 1440 minutos.
 
-## Validación local
+Antes de guardar se advierten coincidencias de unidad o responsable, incluso entre días diferentes y con márgenes. Para guardar pese a una advertencia se exige `confirmar con conflicto`. Los conflictos se vuelven a calcular al confirmar. Las reservas canceladas no ocupan recursos. La app advierte, no promete disponibilidad ni impide una excepción explícita del administrador.
 
-Con Node.js 24, desde la carpeta del proyecto:
+## Equipo: lista explícita y solo lectura
 
-```
-node --check index.js
-node --check src/probe.js
-node --test test/probe.test.js
-```
+El equipo queda desactivado por defecto: `team` es `[]`. Primero completá las pruebas del administrador. Para habilitar usuarios, detené el bot, copiá `config.example.json` a `config.local.json` si todavía no existe y agregá IDs exactos a `team`. Un teléfono debe incluir país y el identificador WhatsApp correcto, por ejemplo `549...@c.us`; los IDs `@lid` son diferentes y no se obtienen cambiando el sufijo del teléfono. Si WhatsApp entrega un LID, debe autorizarse ese ID exacto, obtenido de forma privada y verificada, sin compartir sesiones ni publicar números. Esta versión no descubre contactos ni adivina identidades. Reiniciá para aplicar cambios.
 
-Se verificaron 23 pruebas sin conexión a WhatsApp: permisos, alias de la cuenta, alias ajenos, grupos, identidad ausente, resolución fallida, desconexión, duplicados concurrentes y errores de envío sin filtración. `npm test` sigue siendo el marcador original del proyecto; usá el comando anterior. No hay todavía pruebas de persistencia, fechas o cancelaciones porque las reservas no están implementadas.
+Los usuarios autorizados solo pueden consultar `!hoy`, `!semana`, `!fecha` y `!agenda`. Reciben ID, fecha, horario, estado, lugar, dirección, recursos y responsable. No reciben cliente, teléfono, precios, pagos, saldo, observaciones privadas ni auditoría. Los comandos administrativos se rechazan incluso si el contacto está autorizado. Los grupos y otros contactos se ignoran. No se usan chats históricos ni se envían invitaciones o recordatorios.
 
-En la nube se ejecutó `npm ci --ignore-scripts` con caché local escribible; no se descargó ni arrancó Chromium, ni se vinculó una cuenta. No se validó aquí el arranque de WhatsApp. package.json y package-lock.json se conservaron exactamente como fueron recibidos.
+`config.local.json` está excluido de Git porque puede contener números. No copies el contenido real a config.example.json.
 
-## Auditoría de dependencias
+## Respaldar y restaurar
 
-El lockfile fija whatsapp-web.js 1.34.7, Puppeteer 24.38.0, basic-ftp 5.3.1 y extract-zip 2.0.1. Una auditoría reportó 9 paquetes afectados, todos con severidad alta, contando dependencias que heredan los avisos.
+1. Detené el bot con Ctrl+C.
+2. En una terminal abierta en el proyecto ejecutá `node scripts/backup.js crear` (o `npm run backup`). Crea una copia SQLite consistente y verifica integridad, tablas y eventos en `backups`. No copia sesiones de WhatsApp.
+3. Copiá periódicamente los respaldos a otro dispositivo seguro. La base contiene datos personales y financieros sin cifrado propio: protegé la PC y el dispositivo de respaldo. No subas esos archivos a GitHub.
+4. Para restaurar, con el bot detenido: `node scripts/backup.js restaurar "backups\NOMBRE-DEL-ARCHIVO.sqlite" --confirmar`. Reemplazá el nombre por un archivo real. Valida el respaldo y crea una copia de la base actual antes de sustituirla.
+5. Abrí `iniciar.bat` y verificá `!ver ID` y la agenda. Se restaura la base completa, incluyendo borradores, historial e IDs procesados. Restaurar una copia antigua también retrocede la protección contra duplicados al estado de esa copia; evitá reenviar confirmaciones antiguas.
 
-- `extract-zip`: escritura fuera del destino mediante enlaces simbólicos en archivos maliciosos. Puppeteer lo utiliza en extracción de navegadores; es una superficie de instalación/gestión del navegador. No extraer archivos de origen desconocido. Se mantienen las verificaciones de integridad y TLS.
-- `basic-ftp`: denegación de servicio por análisis de listados FTP. Llega mediante `@puppeteer/browsers -> proxy-agent -> pac-proxy-agent -> get-uri`; `get-uri` invoca `Client.list()` en su ruta FTP. El bot no configura FTP ni PAC, pero esta inspección estática no certifica que nunca se alcance mediante configuración externa.
-- `npm audit` propone whatsapp-web.js 1.34.2: es anterior a la instalada. No se aplicó esa propuesta ni se forzaron overrides sin validar compatibilidad. Los avisos permanecen pendientes; no se declara la instalación libre de vulnerabilidades.
+## Integridad, privacidad y diagnóstico
 
-Avisos: GHSA-c475-qrg2-pj4r, GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3. La integración es no oficial y el riesgo de bloqueo de WhatsApp permanece.
+Las consultas SQLite usan parámetros. Cada mensaje procesado y su modificación se confirman en la misma transacción, con historial y control de versión. Los duplicados de reservas siguen detectándose tras reiniciar. Las respuestas del propio bot se identifican y excluyen del asistente para que no sean tomadas como datos. Si la base confirmó un cambio pero falla el envío, no se repite la escritura automáticamente: consultá `!ver ID`, `!agenda` o `!pendiente`. No se garantiza entrega exactamente una vez frente a fallos externos de WhatsApp.
 
-## Detener, reiniciar y desvincular
+La conexión conserva `clientId: eventos-prueba` y la carpeta original de sesión. Autoriza el chat propio validando `fromMe` y ambos extremos contra la cuenta autenticada y sus alias `@c.us`/`@lid`. Nunca autoriza todos los chats para resolver un error. `!prueba` usa una deduplicación en memoria propia, distinta de la deduplicación persistente de reservas.
 
-- Detener: Ctrl+C en la terminal; se cierra el cliente sin llamar a logout ni borrar la sesión.
-- Reiniciar: esperar el cierre y abrir `iniciar.bat` nuevamente.
-- Desvincular voluntariamente: en el celular, WhatsApp → Dispositivos vinculados → elegir este dispositivo → Cerrar sesión. El siguiente inicio puede requerir QR. No hace falta borrar archivos para detener o reiniciar.
+Eventos útiles: `autenticado`, `identidad_lista`, `conexion_lista`, `comando_prueba_recibido`, `rechazo_permisos`, `rechazo_sin_id`, `intento_respuesta`, `respuesta_enviada`, `error_envio`, `error_reserva_almacenamiento`, `error_envio_reserva`. No se registran cuerpos de reservas, números, errores crudos de librerías ni sesiones. El QR se muestra solo en la terminal cuando WhatsApp lo requiere: no redirijas la salida ni compartas el QR. Si no hay conexión en 60 segundos, `inicio_demorado` es solo un aviso; no demuestra que el proceso falló.
 
-El .gitignore excluye sesiones, cachés, node_modules, bases de datos, respaldos y archivos .env. No publiques información privada; .gitignore no elimina archivos que ya estuvieran versionados.
+Detener: Ctrl+C. Reiniciar: esperar el cierre y abrir iniciar.bat. Desvincular voluntariamente: WhatsApp en el celular → Dispositivos vinculados → elegir dispositivo → Cerrar sesión. Detener/reiniciar no requiere desvincular ni borrar archivos.
 
-### Ajuste del diagnóstico de permisos
+## Validación y limitaciones
 
-La presencia de `author` ya no causa por sí sola un rechazo: si existe, debe coincidir con un alias verificado de la cuenta. Se sigue exigiendo origen y destino propios y `fromMe`. Los grupos y los chats de otros contactos siguen rechazados. La captura inicial de rechazo no permite determinar cuál condición falló; los nuevos campos booleanos permiten comprobarlo sin revelar identidades.
+`npm test` ejecuta pruebas de identidad, permisos, fechas, pagos, superposiciones, confirmación, descartes, historial, persistencia, deduplicación, ecos del bot, respaldo y restauración. Las pruebas no vinculan una cuenta ni envían mensajes reales. El flujo de reservas todavía debe validarse en Windows y el celular; no se afirma que ya pasó esa aceptación. Las pruebas automatizadas de respaldo se ejecutaron en Linux con el mismo Node 24; el procedimiento también necesita aceptación en Windows.
 
-### Identificador del comando
+Las dependencias del lockfile siguen siendo whatsapp-web.js 1.34.7 y Puppeteer 24.38.0. La auditoría previa reportó 9 paquetes con severidad alta, heredados principalmente de basic-ftp 5.3.1 y extract-zip 2.0.1. `extract-zip` se usa en extracción de navegadores y tiene avisos de escritura mediante enlaces simbólicos. basic-ftp llega por `@puppeteer/browsers → proxy-agent → pac-proxy-agent → get-uri`; su ruta FTP llama a Client.list y tiene un aviso de denegación de servicio. El bot no configura FTP/PAC; la inspección estática no certifica que configuración externa nunca alcance esas rutas. No se ejecutó `npm audit fix --force`, no se degradó a 1.34.2 ni se desactivaron verificaciones TLS/integridad. Los avisos permanecen pendientes (GHSA-c475-qrg2-pj4r, GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3). whatsapp-web.js es una integración no oficial y conserva riesgo de bloqueo.
 
-Se acepta el token `message.id.id` cuando existe, y `_serialized` como alternativa. La estructura Message conserva `data.id` recibido de WhatsApp, por lo que no se supone que siempre venga serializado. La validación de identidad se ejecuta antes de leer esta clave. Los identificadores no se registran. La deduplicación sigue limitada a la memoria del proceso; si falta un token válido, el comando se rechaza y solo se informa la presencia o ausencia de los campos.
+Referencias de la versión: https://github.com/pedroslopez/whatsapp-web.js/tree/v1.34.7/src (Client.js, structures/Message.js, authStrategies/LocalAuth.js).

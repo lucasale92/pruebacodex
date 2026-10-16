@@ -11,3 +11,5 @@ backups/
 *.sqlite*
 *.log
 *.zip
+
+config.local.json

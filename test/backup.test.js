@@ -1,0 +1,32 @@
+'use strict';
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync, spawnSync } = require('node:child_process');
+const { Store } = require('../src/store');
+const { acquire } = require('../src/lock');
+test('exclusive instance lock prevents two live processes and backup during operation', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-lock-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const filename = path.join(dir, 'bot.lock'); const release = acquire(filename);
+  assert.throws(() => acquire(filename), /otra instancia/); release(); const releaseAgain = acquire(filename); releaseAgain();
+});
+test('actual backup CLI creates and restores a complete SQLite backup without touching session', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'event-backup-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(dir, 'src')); fs.mkdirSync(path.join(dir, 'scripts'));
+  for (const file of ['store.js', 'domain.js', 'lock.js']) fs.copyFileSync(path.join(__dirname, '..', 'src', file), path.join(dir, 'src', file));
+  fs.copyFileSync(path.join(__dirname, '..', 'scripts', 'backup.js'), path.join(dir, 'scripts', 'backup.js'));
+  const dbFile = path.join(dir, 'data', 'eventos.sqlite');
+  let store = new Store(dbFile); store.once('owner', 'unique', () => store.setDraft('owner', { test: 'durable' })); store.close();
+  const run = (...args) => execFileSync(process.execPath, [path.join(dir, 'scripts', 'backup.js'), ...args], { encoding: 'utf8' });
+  assert.match(run('crear'), /Copia creada/);
+  const backup = path.join(dir, 'backups', fs.readdirSync(path.join(dir, 'backups'))[0]);
+  store = new Store(dbFile); store.clearDraft('owner'); store.close();
+  const release = acquire(path.join(dir, 'data', 'bot.lock'));
+  const blocked = spawnSync(process.execPath, [path.join(dir, 'scripts', 'backup.js'), 'crear']); assert.equal(blocked.status, 1); release();
+  assert.match(run('restaurar', backup, '--confirmar'), /Base restaurada/);
+  store = new Store(dbFile); assert.deepEqual(store.draft('owner'), { test: 'durable' });
+  assert.equal(store.once('owner', 'unique', () => 'wrong'), null); store.close();
+  assert.equal(fs.readdirSync(path.join(dir, 'backups')).length, 2);
+});
