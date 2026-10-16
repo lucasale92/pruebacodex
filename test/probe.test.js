@@ -18,7 +18,7 @@ test('aliases of the authenticated account authorize self chat', async () => {
   assert.equal(f.calls.length, 1); assert.equal(f.calls[0][0], lid);
   assert.deepEqual(f.calls[0][2], { sendSeen: false });
 });
-for (const [name, extra] of Object.entries({ incoming: { fromMe: false }, otherChat: { to: '333@c.us' }, forgedSender: { from: '333@c.us' }, group: { to: '111@g.us' }, author: { author: pn }, missingId: { id: null } })) {
+for (const [name, extra] of Object.entries({ incoming: { fromMe: false }, otherChat: { to: '333@c.us' }, forgedSender: { from: '333@c.us' }, group: { to: '111@g.us' }, foreignAuthor: { author: '333@c.us' }, missingId: { id: null } })) {
   test(`reject ${name}`, async () => {
     const f = fixture(); await f.probe.ready(); await f.probe.handle(message(extra)); assert.equal(f.calls.length, 0);
   });
@@ -47,4 +47,22 @@ test('send errors do not leak details', async () => {
 });
 test('missing authenticated identity fails closed', async () => {
   await assert.rejects(ownIds({ info: {} }), /IDENTITY_UNAVAILABLE/);
+});
+
+for (const author of [pn, lid]) {
+  test(`verified own author ${author.split('@')[1]} is allowed only in own chat`, async () => {
+    const f = fixture(); await f.probe.ready();
+    await f.probe.handle(message({ author })); assert.equal(f.calls.length, 1);
+    await f.probe.handle(message({ author, to: '333@c.us', id: { _serialized: 'other' } }));
+    await f.probe.handle(message({ author, to: '111@g.us', id: { _serialized: 'group' } }));
+    assert.equal(f.calls.length, 1);
+  });
+}
+test('rejection logs only permission booleans', async () => {
+  const entries = [];
+  const f = fixture(); const probe = createProbe(f.client, (...args) => entries.push(args));
+  await probe.ready(); await probe.handle(message({ to: '333@lid' }));
+  const rejection = entries.find(e => e[0] === 'rechazo_permisos');
+  assert.deepEqual(rejection[1], { origenPropio: true, destinoPropio: false, autorPresente: false, autorValido: true });
+  assert.ok(!JSON.stringify(entries).includes('333'));
 });

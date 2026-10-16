@@ -36,8 +36,17 @@ function createProbe(client, log = console.log) {
         origen: personalId(message.from) ? message.from.split('@')[1] : 'otro',
         destino: personalId(message.to) ? message.to.split('@')[1] : 'otro',
       });
-      if (!ids.has(message.from) || !ids.has(message.to) || message.author) {
-        log('rechazo_permisos');
+      const permisos = {
+        origenPropio: ids.has(message.from),
+        destinoPropio: ids.has(message.to),
+        autorPresente: Boolean(message.author),
+        autorValido: !message.author || ids.has(message.author),
+      };
+      // An author field alone is not proof of a group. Accept it only when
+      // it is also a verified alias of this account. Both endpoints must
+      // still be own personal IDs, so groups and other chats remain denied.
+      if (!permisos.origenPropio || !permisos.destinoPropio || !permisos.autorValido) {
+        log('rechazo_permisos', permisos);
         return;
       }
       const key = message.id?._serialized;

@@ -24,7 +24,7 @@ El iniciador actualizado imprime un aviso y la versión de Node inmediatamente. 
 - `identidad_lista`: se obtuvo el ID de la cuenta conectada; `aliasDisponible` indica si también se resolvió su alias.
 - `conexion_lista`: podés enviar el comando nuevo desde el celular.
 - `comando_prueba_recibido`: se recibió `message_create` para un comando propio. Solo registra el tipo de identificador, nunca el número ni el mensaje.
-- `rechazo_permisos`: origen o destino no coincide con la identidad conectada, o el mensaje tiene autor de grupo. No se amplía el acceso para resolverlo.
+- `rechazo_permisos`: origen o destino no coincide con la identidad conectada, o un autor presente no pertenece a la cuenta. El registro muestra únicamente `origenPropio`, `destinoPropio`, `autorPresente` y `autorValido` para identificar la condición fallida. No se amplía el acceso para resolverlo.
 - `intento_respuesta`, seguido por `respuesta_enviada` o `error_envio`: distingue el envío del filtro de permisos.
 - `comando_duplicado`: el mismo ID ya se procesó en este proceso. La memoria es limitada a 1000 comandos y no persiste al reiniciar; esto todavía no es la deduplicación durable del futuro MVP.
 - `error_identidad_no_disponible`: no se habilitan respuestas sin una identidad validada.
@@ -57,7 +57,7 @@ node --check src/probe.js
 node --test test/probe.test.js
 ```
 
-Se verificaron 13 pruebas sin conexión a WhatsApp: permisos, alias de la cuenta, alias ajenos, grupos, identidad ausente, resolución fallida, desconexión, duplicados concurrentes y errores de envío sin filtración. `npm test` sigue siendo el marcador original del proyecto; usá el comando anterior. No hay todavía pruebas de persistencia, fechas o cancelaciones porque las reservas no están implementadas.
+Se verificaron 16 pruebas sin conexión a WhatsApp: permisos, alias de la cuenta, alias ajenos, grupos, identidad ausente, resolución fallida, desconexión, duplicados concurrentes y errores de envío sin filtración. `npm test` sigue siendo el marcador original del proyecto; usá el comando anterior. No hay todavía pruebas de persistencia, fechas o cancelaciones porque las reservas no están implementadas.
 
 En la nube se ejecutó `npm ci --ignore-scripts` con caché local escribible; no se descargó ni arrancó Chromium, ni se vinculó una cuenta. No se validó aquí el arranque de WhatsApp. package.json y package-lock.json se conservaron exactamente como fueron recibidos.
 
@@ -78,3 +78,7 @@ Avisos: GHSA-c475-qrg2-pj4r, GHSA-jmr9-qjv8-65gv, GHSA-7pqw-9j4j-h8q3. La integr
 - Desvincular voluntariamente: en el celular, WhatsApp → Dispositivos vinculados → elegir este dispositivo → Cerrar sesión. El siguiente inicio puede requerir QR. No hace falta borrar archivos para detener o reiniciar.
 
 El .gitignore excluye sesiones, cachés, node_modules, bases de datos, respaldos y archivos .env. No publiques información privada; .gitignore no elimina archivos que ya estuvieran versionados.
+
+### Ajuste del diagnóstico de permisos
+
+La presencia de `author` ya no causa por sí sola un rechazo: si existe, debe coincidir con un alias verificado de la cuenta. Se sigue exigiendo origen y destino propios y `fromMe`. Los grupos y los chats de otros contactos siguen rechazados. La captura inicial de rechazo no permite determinar cuál condición falló; los nuevos campos booleanos permiten comprobarlo sin revelar identidades.
