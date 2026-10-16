@@ -1,0 +1,13 @@
+node_modules/
+.wwebjs_auth/
+.wwebjs_cache/
+.env
+.env.*
+!.env.example
+data/
+backups/
+*.db
+*.db-*
+*.sqlite*
+*.log
+*.zip
