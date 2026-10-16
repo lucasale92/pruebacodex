@@ -90,4 +90,4 @@ Las dependencias del lockfile siguen siendo whatsapp-web.js 1.34.7 y Puppeteer 2
 
 Referencias de la versión: https://github.com/pedroslopez/whatsapp-web.js/tree/v1.34.7/src (Client.js, structures/Message.js, authStrategies/LocalAuth.js).
 
-Cuando el autor adicional de un mensaje propio no coincide con los alias, el módulo de reservas consulta `message.getChat()` y exige un chat privado cuyo ID pertenezca a la cuenta, además de `fromMe` y ambos extremos propios. Nunca agrega el autor desconocido como alias. Si esa comprobación falla, rechaza el comando.
+El módulo de reservas autoriza la administración mediante `fromMe === true` y ambos extremos pertenecientes a los IDs personales verificados de la cuenta. La librería identifica el chat saliente por `to`; los grupos usan destinos `@g.us`, que nunca se agregan a esos IDs. `author` es metadato adicional y no se usa para identificar este chat privado ni se agrega como alias. No se consulta `getChat()` para esta validación, porque puede fallar independientemente de la identidad. Los contactos del equipo conservan su lista explícita y su acceso de solo lectura.

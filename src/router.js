@@ -36,25 +36,15 @@ function createRouter(client, store, reservations, config, log = () => {}) {
         identidadLista: Boolean(primary),
         origenPropio: own.has(message.from),
         destinoPropio: own.has(message.to),
-        autorValido: !message.author || own.has(message.author),
+        autorCoincide: !message.author || own.has(message.author),
       });
       if (!primary) { if (ownCommand) log('reserva_identidad_no_lista'); return; }
       if (this.isSent(message)) { if (ownCommand) log('reserva_eco_ignorado'); return; }
-      let owner = Boolean(message.fromMe && own.has(message.from) && own.has(message.to) && (!message.author || own.has(message.author)));
-      if (!owner && message.fromMe && own.has(message.from) && own.has(message.to)) {
-        // Some self-chat deliveries carry a different author representation.
-        // Never add it as an alias. Independently verify the actual chat.
-        const identityAtLookup = primary;
-        try {
-          const chat = await message.getChat();
-          owner = Boolean(primary && primary === identityAtLookup &&
-            own.has(message.from) && own.has(message.to) &&
-            chat?.isGroup === false && own.has(chat.id?._serialized));
-          log('reserva_chat_propio_verificado', { valido: owner });
-        } catch {
-          log('reserva_error_verificar_chat');
-        }
-      }
+      // Message._getChatId() uses `to` for outgoing messages. Both ends
+      // must match verified personal account IDs. A group @g.us or any
+      // other destination cannot satisfy this. `author` is supplemental
+      // metadata, not the chat identity; never add it to the own-ID set.
+      const owner = message.fromMe === true && own.has(message.from) && own.has(message.to);
       const team = !message.fromMe && /^\d+@(c\.us|lid)$/.test(message.from || '') && config.team.includes(message.from) && own.has(message.to) && (!message.author || message.author === message.from);
       if (!owner && !team) { if (ownCommand) log('reserva_rechazo_permisos'); return; }
       const key = messageKey(message);

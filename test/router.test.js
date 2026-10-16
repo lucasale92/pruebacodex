@@ -59,7 +59,7 @@ test('own command diagnostics distinguish rejected permissions without logging t
   const router = createRouter(f.client, f.store, f.app, f.config, (...args) => entries.push(args));
   await router.ready();
   await router.handle(f.message('!nuevo secreto', { to: '999@lid' }));
-  assert.deepEqual(entries[0], ['comando_reserva_recibido', { identidadLista: true, origenPropio: true, destinoPropio: false, autorValido: true }]);
+  assert.deepEqual(entries[0], ['comando_reserva_recibido', { identidadLista: true, origenPropio: true, destinoPropio: false, autorCoincide: true }]);
   assert.equal(entries[1][0], 'reserva_rechazo_permisos');
   assert.ok(!JSON.stringify(entries).includes('secreto')); assert.ok(!JSON.stringify(entries).includes('999'));
   entries.length = 0;
@@ -73,24 +73,28 @@ test('successful command emits send result diagnostics', async t => {
   assert.ok(entries.includes('intento_respuesta_reserva')); assert.ok(entries.includes('respuesta_reserva_enviada'));
 });
 
-test('unknown author is accepted only with independent private self-chat verification', async t => {
+
+test('verified self endpoints authorize despite supplemental author and broken chat lookup', async t => {
   const f = await fixture(t);
   await f.router.handle(f.message('!nuevo', {
     author: 'different-representation',
-    getChat: async () => ({ isGroup: false, id: { _serialized: lid } }),
+    getChat: async () => { throw Error('broken library lookup must not be used'); },
   }));
   assert.equal(f.sent.length, 1); assert.equal(f.store.draft(`owner:${pn}`).step, 0);
 });
-for (const [name, chat] of Object.entries({ group: { isGroup: true, id: { _serialized: lid } }, other: { isGroup: false, id: { _serialized: team } }, incomplete: { id: { _serialized: lid } } })) {
-  test(`unknown author rejects ${name} chat metadata`, async t => {
+for (const [name, extra] of Object.entries({
+  group: { to: '111@g.us' }, otherDestination: { to: team },
+  otherOrigin: { from: team }, incoming: { fromMe: false, from: '999@c.us' },
+  nonBooleanFlag: { fromMe: 'true' },
+})) {
+  test(`supplemental author cannot bypass ${name} rejection`, async t => {
     const f = await fixture(t);
-    await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => chat }));
+    await f.router.handle(f.message('!nuevo', { author: pn, ...extra }));
     assert.equal(f.sent.length, 0); assert.equal(f.store.draft(`owner:${pn}`), null);
   });
 }
-test('failed chat lookup and disconnection during lookup fail closed', async t => {
-  const f = await fixture(t);
-  await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => { throw Error('private'); } }));
-  await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => { f.router.reset(); return { isGroup: false, id: { _serialized: lid } }; } }));
-  assert.equal(f.sent.length, 0); assert.equal(f.store.draft(`owner:${pn}`), null);
+test('disconnect still denies self endpoints with any author', async t => {
+  const f = await fixture(t); f.router.reset();
+  await f.router.handle(f.message('!nuevo', { author: 'different-representation' }));
+  assert.equal(f.sent.length, 0);
 });
