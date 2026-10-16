@@ -31,10 +31,18 @@ function createRouter(client, store, reservations, config, log = () => {}) {
       return Boolean(key && (sent.has(key) || store.isSent(digest(key))));
     },
     async handle(message) {
-      if (!primary || this.isSent(message)) return;
+      const ownCommand = message.fromMe && typeof message.body === 'string' && message.body.trim().startsWith('!');
+      if (ownCommand) log('comando_reserva_recibido', {
+        identidadLista: Boolean(primary),
+        origenPropio: own.has(message.from),
+        destinoPropio: own.has(message.to),
+        autorValido: !message.author || own.has(message.author),
+      });
+      if (!primary) { if (ownCommand) log('reserva_identidad_no_lista'); return; }
+      if (this.isSent(message)) { if (ownCommand) log('reserva_eco_ignorado'); return; }
       const owner = message.fromMe && own.has(message.from) && own.has(message.to) && (!message.author || own.has(message.author));
       const team = !message.fromMe && /^\d+@(c\.us|lid)$/.test(message.from || '') && config.team.includes(message.from) && own.has(message.to) && (!message.author || message.author === message.from);
-      if (!owner && !team) return;
+      if (!owner && !team) { if (ownCommand) log('reserva_rechazo_permisos'); return; }
       const key = messageKey(message);
       if (!key) { log('reserva_rechazo_sin_id'); return; }
       // Audio is not downloaded, transcribed, or interpreted in this stage.
@@ -43,17 +51,20 @@ function createRouter(client, store, reservations, config, log = () => {}) {
       let result;
       try {
         result = reservations.handle({ actor: owner ? `owner:${primary}` : `team:${message.from}`, token: digest(key), role: owner ? 'owner' : 'team', text: body });
-      } catch {
-        log('error_reserva_almacenamiento');
+      } catch (error) {
+        const codes = ['ERR_SQLITE_ERROR', 'SQLITE_BUSY', 'SQLITE_READONLY', 'SQLITE_FULL', 'SQLITE_CORRUPT'];
+        log('error_reserva_almacenamiento', { codigo: codes.includes(error?.code) ? error.code : 'otro' });
         return;
       }
-      if (!result) return;
+      if (!result) { if (ownCommand) log('reserva_sin_respuesta_o_duplicada'); return; }
+      log('intento_respuesta_reserva');
       // Reply only to this validated chat, never to a number in message text.
       const destination = owner ? message.to : message.from;
       for (let offset = 0; offset < result.length; offset += 3000) {
         try { await this.send(destination, result.slice(offset, offset + 3000), { sendSeen: false }); }
         catch { log('error_envio_reserva'); return; }
       }
+      log('respuesta_reserva_enviada');
     },
   };
 }

@@ -53,3 +53,22 @@ test('audio is not downloaded or accepted as reservation data', async t => {
   await f.router.handle(f.message('', { type: 'ptt', downloadMedia: () => { throw Error('must not download'); } }));
   assert.equal(f.store.draft(`owner:${pn}`).step, 0);
 });
+
+test('own command diagnostics distinguish rejected permissions without logging text or identities', async t => {
+  const f = await fixture(t); const entries = [];
+  const router = createRouter(f.client, f.store, f.app, f.config, (...args) => entries.push(args));
+  await router.ready();
+  await router.handle(f.message('!nuevo secreto', { to: '999@lid' }));
+  assert.deepEqual(entries[0], ['comando_reserva_recibido', { identidadLista: true, origenPropio: true, destinoPropio: false, autorValido: true }]);
+  assert.equal(entries[1][0], 'reserva_rechazo_permisos');
+  assert.ok(!JSON.stringify(entries).includes('secreto')); assert.ok(!JSON.stringify(entries).includes('999'));
+  entries.length = 0;
+  await router.handle(f.message('!nuevo', { fromMe: false, from: '999@c.us', to: pn }));
+  assert.equal(entries.length, 0);
+});
+test('successful command emits send result diagnostics', async t => {
+  const f = await fixture(t); const entries = [];
+  const router = createRouter(f.client, f.store, f.app, f.config, e => entries.push(e));
+  await router.ready(); await router.handle(f.message('!ayuda'));
+  assert.ok(entries.includes('intento_respuesta_reserva')); assert.ok(entries.includes('respuesta_reserva_enviada'));
+});
