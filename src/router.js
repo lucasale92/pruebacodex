@@ -40,7 +40,21 @@ function createRouter(client, store, reservations, config, log = () => {}) {
       });
       if (!primary) { if (ownCommand) log('reserva_identidad_no_lista'); return; }
       if (this.isSent(message)) { if (ownCommand) log('reserva_eco_ignorado'); return; }
-      const owner = message.fromMe && own.has(message.from) && own.has(message.to) && (!message.author || own.has(message.author));
+      let owner = Boolean(message.fromMe && own.has(message.from) && own.has(message.to) && (!message.author || own.has(message.author)));
+      if (!owner && message.fromMe && own.has(message.from) && own.has(message.to)) {
+        // Some self-chat deliveries carry a different author representation.
+        // Never add it as an alias. Independently verify the actual chat.
+        const identityAtLookup = primary;
+        try {
+          const chat = await message.getChat();
+          owner = Boolean(primary && primary === identityAtLookup &&
+            own.has(message.from) && own.has(message.to) &&
+            chat?.isGroup === false && own.has(chat.id?._serialized));
+          log('reserva_chat_propio_verificado', { valido: owner });
+        } catch {
+          log('reserva_error_verificar_chat');
+        }
+      }
       const team = !message.fromMe && /^\d+@(c\.us|lid)$/.test(message.from || '') && config.team.includes(message.from) && own.has(message.to) && (!message.author || message.author === message.from);
       if (!owner && !team) { if (ownCommand) log('reserva_rechazo_permisos'); return; }
       const key = messageKey(message);

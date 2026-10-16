@@ -72,3 +72,25 @@ test('successful command emits send result diagnostics', async t => {
   await router.ready(); await router.handle(f.message('!ayuda'));
   assert.ok(entries.includes('intento_respuesta_reserva')); assert.ok(entries.includes('respuesta_reserva_enviada'));
 });
+
+test('unknown author is accepted only with independent private self-chat verification', async t => {
+  const f = await fixture(t);
+  await f.router.handle(f.message('!nuevo', {
+    author: 'different-representation',
+    getChat: async () => ({ isGroup: false, id: { _serialized: lid } }),
+  }));
+  assert.equal(f.sent.length, 1); assert.equal(f.store.draft(`owner:${pn}`).step, 0);
+});
+for (const [name, chat] of Object.entries({ group: { isGroup: true, id: { _serialized: lid } }, other: { isGroup: false, id: { _serialized: team } }, incomplete: { id: { _serialized: lid } } })) {
+  test(`unknown author rejects ${name} chat metadata`, async t => {
+    const f = await fixture(t);
+    await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => chat }));
+    assert.equal(f.sent.length, 0); assert.equal(f.store.draft(`owner:${pn}`), null);
+  });
+}
+test('failed chat lookup and disconnection during lookup fail closed', async t => {
+  const f = await fixture(t);
+  await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => { throw Error('private'); } }));
+  await f.router.handle(f.message('!nuevo', { author: 'different-representation', getChat: async () => { f.router.reset(); return { isGroup: false, id: { _serialized: lid } }; } }));
+  assert.equal(f.sent.length, 0); assert.equal(f.store.draft(`owner:${pn}`), null);
+});
